@@ -1,0 +1,40 @@
+/* Fix pour les vibrations et flou */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Désactiver les animations problématiques */
+.card {
+  transform: none !important;
+  transition: none !important;
+}
+
+.table {
+  border-collapse: collapse !important;
+  border-spacing: 0 !important;
+}
+
+/* Fix pour Bootstrap */
+.table td, .table th {
+  vertical-align: middle;
+  border: 1px solid #dee2e6;
+}
+
+/* Fix pour les cartes */
+.card {
+  border: 1px solid rgba(0, 0, 0, 0.125);
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}
+
+/* Désactiver les effets de hover problématiques */
+.card:hover {
+  transform: none !important;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+}

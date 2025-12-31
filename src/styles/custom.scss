@@ -1,0 +1,107 @@
+// Variables de thème violet
+$primary: #6a11cb;
+$secondary: #2575fc;
+$success: #20bf6b;
+$info: #2bcbba;
+$warning: #fa8231;
+$danger: #eb3b5a;
+$light: #f8f9fa;
+$dark: #2d3436;
+
+// Dégradés violets
+$gradient-primary: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+$gradient-secondary: linear-gradient(135deg, #8a2be2 0%, #9370db 100%);
+
+// Importation Bootstrap
+@import "~bootstrap/scss/bootstrap";
+
+// Styles personnalisés
+:root {
+  --primary-light: #8a4bff;
+  --primary-dark: #4a00b8;
+  --primary-gradient: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+}
+
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+// Classes de couleurs supplémentaires
+.bg-gradient-primary {
+  background: $gradient-primary !important;
+}
+
+.text-gradient {
+  background: $gradient-primary;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+// Boutons avec dégradé
+.btn-gradient {
+  background: $gradient-primary;
+  border: none;
+  color: white;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: linear-gradient(135deg, #5a0db8 0%, #1c68e8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(106, 17, 203, 0.3);
+    color: white;
+  }
+}
+
+// Cartes avec bordure violette
+.card-violet {
+  border-top: 4px solid $primary;
+  
+  &:hover {
+    border-color: var(--primary-light);
+  }
+}
+
+// Badges violets
+.badge-violet {
+  background: $gradient-primary;
+  color: white;
+}
+
+// Navbar violette
+.navbar-violet {
+  background: $gradient-primary !important;
+  
+  .navbar-brand, .nav-link {
+    color: white !important;
+    
+    &:hover {
+      color: rgba(255, 255, 255, 0.9) !important;
+    }
+  }
+}
+
+// Alertes violettes
+.alert-violet {
+  background: linear-gradient(135deg, rgba(106, 17, 203, 0.1) 0%, rgba(37, 117, 252, 0.1) 100%);
+  border-color: $primary;
+  color: $primary;
+}
+
+// Table avec en-tête violet
+.table-violet thead th {
+  background: $gradient-primary;
+  color: white;
+  border: none;
+}
+
+// Loader/spinner violet
+.spinner-violet {
+  color: $primary;
+}
+
+// Input focus violet
+.form-control:focus {
+  border-color: $primary;
+  box-shadow: 0 0 0 0.25rem rgba(106, 17, 203, 0.25);
+}
