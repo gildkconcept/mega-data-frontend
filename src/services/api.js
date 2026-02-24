@@ -1,3 +1,4 @@
+// frontend/src/api.js
 import axios from 'axios';
 
 // =============================================
@@ -6,29 +7,32 @@ import axios from 'axios';
 
 // URLs prioritaires selon l'environnement
 const getApiUrl = () => {
-  // 1. Variable d'environnement (Vercel)
+  // 1. Variable d'environnement (Vercel) - PRIORITAIRE
   if (process.env.REACT_APP_API_URL) {
+    console.log('🔧 Using REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
     return process.env.REACT_APP_API_URL;
   }
 
-  // 2. En production, utiliser l'URL Render
+  // 2. En production, utiliser l'URL Render par défaut (à remplacer par votre URL)
   if (process.env.NODE_ENV === 'production') {
-    // Remplacez par votre URL Render réelle
-    return 'https://votre-backend.onrender.com';
+    const defaultProdUrl = 'https://mega-data-backend.onrender.com'; // REMPLACEZ PAR VOTRE URL RENDER
+    console.log('🔧 Production mode, using default URL:', defaultProdUrl);
+    return defaultProdUrl;
   }
   
   // 3. Développement local
+  console.log('🔧 Development mode, using localhost');
   return 'http://localhost:5000';
 };
 
 const API_URL = getApiUrl();
 
 // Debug configuration
-console.log('🔧 Configuration API:', {
+console.log('🔧 Configuration API Finale:', {
   environment: process.env.NODE_ENV,
   apiUrl: API_URL,
   isProduction: process.env.NODE_ENV === 'production',
-  appEnv: process.env.REACT_APP_ENV
+  hasEnvVar: !!process.env.REACT_APP_API_URL
 });
 
 // =============================================
@@ -62,6 +66,7 @@ api.interceptors.request.use(
     if (process.env.NODE_ENV === 'development') {
       console.group(`📤 ${config.method?.toUpperCase()} ${config.url}`);
       console.log('Base URL:', API_URL);
+      console.log('Full URL:', `${API_URL}${config.url}`);
       console.log('Headers:', config.headers);
       if (config.data) {
         console.log('Data:', config.data);
@@ -101,10 +106,13 @@ api.interceptors.response.use(
     console.error('❌ Erreur API:', {
       url: error.config?.url,
       method: error.config?.method,
+      baseURL: error.config?.baseURL,
+      fullURL: error.config ? `${error.config.baseURL}${error.config.url}` : 'N/A',
       status: error.response?.status,
       statusText: error.response?.statusText,
       message: error.message,
-      data: error.response?.data
+      data: error.response?.data,
+      code: error.code
     });
     
     const originalRequest = error.config;
@@ -150,6 +158,14 @@ api.interceptors.response.use(
       return Promise.reject(new Error('La ressource demandée n\'existe pas.'));
     }
     
+    // Erreur 408 - Timeout
+    if (error.response?.status === 408 || error.code === 'ECONNABORTED') {
+      console.warn('⏰ Timeout de la requête');
+      return Promise.reject(new Error(
+        'La requête a pris trop de temps. Le serveur pourrait être surchargé.'
+      ));
+    }
+    
     // Erreur 500 - Serveur
     if (error.response?.status >= 500) {
       console.error('🚨 Erreur serveur');
@@ -163,16 +179,25 @@ api.interceptors.response.use(
       return Promise.reject(new Error('Erreur serveur. Notre équipe a été notifiée.'));
     }
     
-    // Erreur réseau
+    // Erreur réseau (CORS, DNS, etc.)
     if (!error.response) {
-      console.error('🌐 Erreur réseau');
+      console.error('🌐 Erreur réseau - Vérification de la connexion...');
+      
+      // Message d'erreur spécifique pour CORS
+      if (error.message.includes('CORS')) {
+        console.error('🚫 Erreur CORS détectée');
+        return Promise.reject(new Error(
+          'Erreur de configuration CORS. Vérifiez que le backend autorise votre domaine.'
+        ));
+      }
       
       // Vérifier si le backend est accessible
       checkBackendHealth().then(health => {
         if (!health.healthy) {
+          console.warn('🔴 Backend inaccessible');
           window.dispatchEvent(new CustomEvent('backend-offline', {
             detail: { 
-              message: 'Serveur temporairement indisponible',
+              message: 'Le serveur est temporairement indisponible',
               url: API_URL 
             }
           }));
@@ -180,11 +205,11 @@ api.interceptors.response.use(
       });
       
       return Promise.reject(new Error(
-        'Impossible de contacter le serveur. Vérifiez votre connexion internet.'
+        `Impossible de contacter le serveur (${API_URL}). Vérifiez votre connexion internet.`
       ));
     }
     
-    // Erreur de timeout
+    // Erreur de timeout (code spécifique)
     if (error.code === 'ECONNABORTED') {
       console.error('⏰ Timeout de la requête');
       return Promise.reject(new Error(
@@ -195,6 +220,7 @@ api.interceptors.response.use(
     // Autres erreurs
     const errorMessage = error.response?.data?.message || 
                         error.response?.data?.error || 
+                        error.response?.data?.error?.message ||
                         error.message || 
                         'Une erreur est survenue';
     
@@ -211,21 +237,34 @@ api.interceptors.response.use(
  */
 export const checkBackendHealth = async () => {
   try {
+    console.log('🔍 Vérification santé du backend:', API_URL);
     const response = await axios.get(`${API_URL}/api/health`, {
-      timeout: 5000
+      timeout: 5000,
+      headers: {
+        'Accept': 'application/json'
+      }
     });
     
+    console.log('✅ Backend en ligne:', response.data);
     return {
       healthy: true,
       data: response.data,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      url: API_URL
     };
   } catch (error) {
-    console.error('❌ Backend hors ligne:', error.message);
+    console.error('❌ Backend hors ligne:', {
+      url: API_URL,
+      error: error.message,
+      code: error.code
+    });
     return {
       healthy: false,
       error: error.message,
-      timestamp: new Date().toISOString()
+      code: error.code,
+      timestamp: new Date().toISOString(),
+      url: API_URL,
+      suggestion: 'Vérifiez que le backend Render est en ligne et que l\'URL est correcte'
     };
   }
 };
@@ -235,37 +274,65 @@ export const checkBackendHealth = async () => {
  */
 export const testBackendConnection = async () => {
   const startTime = Date.now();
+  const testUrl = `${API_URL}/api/health`;
+  
+  console.log('🔍 Test de connexion au backend:', testUrl);
   
   try {
     // Test 1: Endpoint health
-    const healthResponse = await axios.get(`${API_URL}/api/health`, {
-      timeout: 10000
+    const healthResponse = await axios.get(testUrl, {
+      timeout: 10000,
+      headers: {
+        'Accept': 'application/json'
+      }
     });
     
     const responseTime = Date.now() - startTime;
     
-    return {
+    // Test 2: Vérifier que l'API retourne le bon format
+    const isValidResponse = healthResponse.data && 
+                           (healthResponse.data.success !== undefined || 
+                            healthResponse.data.services !== undefined);
+    
+    const result = {
       success: true,
       data: {
         ...healthResponse.data,
         responseTime: `${responseTime}ms`,
         apiUrl: API_URL,
-        environment: process.env.NODE_ENV
+        environment: process.env.NODE_ENV,
+        validFormat: isValidResponse
       },
       timestamp: new Date().toISOString()
     };
     
+    console.log('✅ Test de connexion réussi:', result);
+    return result;
+    
   } catch (error) {
-    return {
+    const responseTime = Date.now() - startTime;
+    
+    const errorResult = {
       success: false,
       error: {
         message: error.message,
         code: error.code,
-        url: API_URL
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        url: API_URL,
+        responseTime: `${responseTime}ms`
       },
       timestamp: new Date().toISOString(),
-      suggestion: 'Vérifiez que le backend Render est en ligne et accessible.'
+      suggestions: [
+        'Vérifiez que le backend Render est en ligne',
+        'Vérifiez que l\'URL est correcte',
+        'Vérifiez les logs sur Render',
+        'Assurez-vous que les variables d\'environnement sont configurées'
+      ]
     };
+    
+    console.error('❌ Test de connexion échoué:', errorResult);
+    return errorResult;
   }
 };
 
@@ -280,7 +347,7 @@ api.downloadFile = async (url, options = {}) => {
   
   const headers = {
     Authorization: `Bearer ${token}`,
-    'Accept': 'application/octet-stream',
+    'Accept': 'application/octet-stream, application/pdf, text/csv',
     ...options.headers
   };
 
@@ -307,6 +374,8 @@ api.downloadFile = async (url, options = {}) => {
 
     const blob = await response.blob();
     
+    console.log(`✅ Téléchargement réussi: ${filename} (${blob.size} octets)`);
+    
     return {
       blob,
       filename,
@@ -328,6 +397,8 @@ api.uploadFile = async (url, file, onProgress = null) => {
   const formData = new FormData();
   formData.append('file', file);
   
+  console.log(`📤 Upload: ${file.name} (${file.size} octets) vers ${url}`);
+  
   return api.post(url, formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
@@ -339,6 +410,10 @@ api.uploadFile = async (url, file, onProgress = null) => {
           (progressEvent.loaded * 100) / progressEvent.total
         );
         onProgress(percentCompleted);
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`📤 Progression: ${percentCompleted}%`);
+        }
       }
     }
   });
@@ -362,6 +437,8 @@ api.getWithCache = async (url, options = {}) => {
       if (age < maxAge) {
         console.log('💾 Utilisation du cache pour:', url);
         return JSON.parse(cached);
+      } else {
+        console.log('♻️ Cache expiré pour:', url);
       }
     }
   }
@@ -370,9 +447,14 @@ api.getWithCache = async (url, options = {}) => {
   const response = await api.get(url, options);
   
   // Mettre en cache si demandé
-  if (options.cache && options.cache === true) {
-    localStorage.setItem(cacheKey, JSON.stringify(response.data));
-    localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+  if (options.cache && options.cache === true && response.data) {
+    try {
+      localStorage.setItem(cacheKey, JSON.stringify(response.data));
+      localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
+      console.log('💾 Données mises en cache pour:', url);
+    } catch (e) {
+      console.warn('⚠️ Impossible de mettre en cache (espace localStorage insuffisant)');
+    }
   }
   
   return response.data;
@@ -383,14 +465,33 @@ api.getWithCache = async (url, options = {}) => {
  */
 api.clearCache = () => {
   const keys = Object.keys(localStorage);
+  let count = 0;
+  
   keys.forEach(key => {
     if (key.startsWith('cache_')) {
       localStorage.removeItem(key);
       localStorage.removeItem(`${key}_time`);
+      count++;
     }
   });
-  console.log('🧹 Cache API nettoyé');
+  
+  console.log(`🧹 Cache API nettoyé: ${count} entrées supprimées`);
 };
+
+/**
+ * Obtenir l'URL de base de l'API
+ */
+api.getBaseUrl = () => API_URL;
+
+/**
+ * Vérifier la configuration actuelle
+ */
+api.getConfig = () => ({
+  baseURL: API_URL,
+  environment: process.env.NODE_ENV,
+  hasToken: !!localStorage.getItem('token'),
+  timestamp: new Date().toISOString()
+});
 
 // =============================================
 // EXPORT
