@@ -5,7 +5,7 @@ import axios from 'axios';
 // CONFIGURATION DE L'API
 // =============================================
 
-// NOUVELLE URL RENDER (à jour)
+// NOUVELLE URL RENDER (sans slash à la fin)
 const RENDER_BACKEND_URL = 'https://mega-data-pw3w.onrender.com';
 
 // URLs prioritaires selon l'environnement
@@ -41,6 +41,10 @@ console.log('🔧 Configuration API Finale:', {
   isProduction: process.env.NODE_ENV === 'production',
   hasEnvVar: !!process.env.REACT_APP_API_URL
 });
+
+// Vérifions qu'une requête complète sera bien formée
+console.log('✅ Exemple inscription:', `${API_URL}/api/auth/register`);
+console.log('✅ Exemple santé:', `${API_URL}/api/health`);
 
 // =============================================
 // INSTANCE AXIOS
@@ -158,8 +162,8 @@ api.interceptors.response.use(
     
     // Erreur 404 - Non trouvé
     if (error.response?.status === 404) {
-      console.warn('🔍 Ressource non trouvée');
-      return Promise.reject(new Error('La ressource demandée n\'existe pas.'));
+      console.warn('🔍 Ressource non trouvée - Vérifiez que l\'URL est correcte:', `${API_URL}${error.config?.url}`);
+      return Promise.reject(new Error(`La ressource demandée n'existe pas. URL testée: ${API_URL}${error.config?.url}`));
     }
     
     // Erreur 408 - Timeout
