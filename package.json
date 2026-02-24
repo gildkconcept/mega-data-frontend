@@ -24,7 +24,8 @@
     "recharts": "^3.6.0",
     "sass": "^1.97.1",
     "web-vitals": "^2.1.4",
-    "yup": "^1.7.1"
+    "yup": "^1.7.1",
+     "json2csv": "^6.0.0"
   },
   "scripts": {
     "start": "react-scripts start",

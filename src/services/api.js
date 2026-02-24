@@ -10,9 +10,15 @@ const getApiUrl = () => {
   if (process.env.REACT_APP_API_URL) {
     return process.env.REACT_APP_API_URL;
   }
+
+  // 2. En production, utiliser l'URL Render
+  if (process.env.NODE_ENV === 'production') {
+    // Remplacez par votre URL Render réelle
+    return 'https://votre-backend.onrender.com';
+  }
   
-  // 2. Backend Railway (production)
-  return 'https://web-production-b92a.up.railway.app';
+  // 3. Développement local
+  return 'http://localhost:5000';
 };
 
 const API_URL = getApiUrl();
@@ -258,7 +264,7 @@ export const testBackendConnection = async () => {
         url: API_URL
       },
       timestamp: new Date().toISOString(),
-      suggestion: 'Vérifiez que le backend Railway est en ligne et accessible.'
+      suggestion: 'Vérifiez que le backend Render est en ligne et accessible.'
     };
   }
 };
