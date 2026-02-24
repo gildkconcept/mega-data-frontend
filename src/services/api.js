@@ -1,9 +1,12 @@
-// frontend/src/api.js
+// frontend/src/services/api.js
 import axios from 'axios';
 
 // =============================================
 // CONFIGURATION DE L'API
 // =============================================
+
+// NOUVELLE URL RENDER (à jour)
+const RENDER_BACKEND_URL = 'https://mega-data-pw3w.onrender.com';
 
 // URLs prioritaires selon l'environnement
 const getApiUrl = () => {
@@ -13,11 +16,10 @@ const getApiUrl = () => {
     return process.env.REACT_APP_API_URL;
   }
 
-  // 2. En production, utiliser l'URL Render par défaut (à remplacer par votre URL)
+  // 2. En production, utiliser la nouvelle URL Render
   if (process.env.NODE_ENV === 'production') {
-    const defaultProdUrl = 'https://mega-data-backend.onrender.com'; // REMPLACEZ PAR VOTRE URL RENDER
-    console.log('🔧 Production mode, using default URL:', defaultProdUrl);
-    return defaultProdUrl;
+    console.log('🔧 Production mode, using Render URL:', RENDER_BACKEND_URL);
+    return RENDER_BACKEND_URL;
   }
   
   // 3. Développement local
@@ -115,8 +117,6 @@ api.interceptors.response.use(
       code: error.code
     });
     
-    const originalRequest = error.config;
-    
     // Erreur 401 - Non autorisé
     if (error.response?.status === 401) {
       console.warn('⚠️ Session expirée ou invalide');
@@ -132,9 +132,8 @@ api.interceptors.response.use(
         detail: { message: 'Votre session a expiré' }
       }));
       
-      // Redirection vers login (SPA friendly)
+      // Redirection vers login
       if (window.location.pathname !== '/login') {
-        // Stocker l'URL actuelle pour redirection après login
         sessionStorage.setItem('redirectAfterLogin', window.location.pathname);
         window.location.href = '/login?expired=true';
       }
@@ -191,29 +190,8 @@ api.interceptors.response.use(
         ));
       }
       
-      // Vérifier si le backend est accessible
-      checkBackendHealth().then(health => {
-        if (!health.healthy) {
-          console.warn('🔴 Backend inaccessible');
-          window.dispatchEvent(new CustomEvent('backend-offline', {
-            detail: { 
-              message: 'Le serveur est temporairement indisponible',
-              url: API_URL 
-            }
-          }));
-        }
-      });
-      
       return Promise.reject(new Error(
         `Impossible de contacter le serveur (${API_URL}). Vérifiez votre connexion internet.`
-      ));
-    }
-    
-    // Erreur de timeout (code spécifique)
-    if (error.code === 'ECONNABORTED') {
-      console.error('⏰ Timeout de la requête');
-      return Promise.reject(new Error(
-        'La requête a pris trop de temps. Le serveur pourrait être surchargé.'
       ));
     }
     
@@ -279,7 +257,6 @@ export const testBackendConnection = async () => {
   console.log('🔍 Test de connexion au backend:', testUrl);
   
   try {
-    // Test 1: Endpoint health
     const healthResponse = await axios.get(testUrl, {
       timeout: 10000,
       headers: {
@@ -289,19 +266,13 @@ export const testBackendConnection = async () => {
     
     const responseTime = Date.now() - startTime;
     
-    // Test 2: Vérifier que l'API retourne le bon format
-    const isValidResponse = healthResponse.data && 
-                           (healthResponse.data.success !== undefined || 
-                            healthResponse.data.services !== undefined);
-    
     const result = {
       success: true,
       data: {
         ...healthResponse.data,
         responseTime: `${responseTime}ms`,
         apiUrl: API_URL,
-        environment: process.env.NODE_ENV,
-        validFormat: isValidResponse
+        environment: process.env.NODE_ENV
       },
       timestamp: new Date().toISOString()
     };
@@ -325,7 +296,7 @@ export const testBackendConnection = async () => {
       timestamp: new Date().toISOString(),
       suggestions: [
         'Vérifiez que le backend Render est en ligne',
-        'Vérifiez que l\'URL est correcte',
+        `URL actuelle: ${API_URL}`,
         'Vérifiez les logs sur Render',
         'Assurez-vous que les variables d\'environnement sont configurées'
       ]
@@ -361,7 +332,6 @@ api.downloadFile = async (url, options = {}) => {
       throw new Error(`Erreur ${response.status}: ${response.statusText}`);
     }
 
-    // Récupérer le nom du fichier depuis les headers
     const contentDisposition = response.headers.get('Content-Disposition');
     let filename = 'download';
     
@@ -410,10 +380,6 @@ api.uploadFile = async (url, file, onProgress = null) => {
           (progressEvent.loaded * 100) / progressEvent.total
         );
         onProgress(percentCompleted);
-        
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`📤 Progression: ${percentCompleted}%`);
-        }
       }
     }
   });
@@ -425,14 +391,13 @@ api.uploadFile = async (url, file, onProgress = null) => {
 api.getWithCache = async (url, options = {}) => {
   const cacheKey = `cache_${url}_${JSON.stringify(options.params || {})}`;
   
-  // Vérifier le cache si demandé
   if (options.cache && options.cache === true) {
     const cached = localStorage.getItem(cacheKey);
     const cacheTime = localStorage.getItem(`${cacheKey}_time`);
     
     if (cached && cacheTime) {
       const age = Date.now() - parseInt(cacheTime);
-      const maxAge = options.maxAge || 5 * 60 * 1000; // 5 minutes par défaut
+      const maxAge = options.maxAge || 5 * 60 * 1000;
       
       if (age < maxAge) {
         console.log('💾 Utilisation du cache pour:', url);
@@ -443,17 +408,15 @@ api.getWithCache = async (url, options = {}) => {
     }
   }
   
-  // Faire la requête
   const response = await api.get(url, options);
   
-  // Mettre en cache si demandé
   if (options.cache && options.cache === true && response.data) {
     try {
       localStorage.setItem(cacheKey, JSON.stringify(response.data));
       localStorage.setItem(`${cacheKey}_time`, Date.now().toString());
       console.log('💾 Données mises en cache pour:', url);
     } catch (e) {
-      console.warn('⚠️ Impossible de mettre en cache (espace localStorage insuffisant)');
+      console.warn('⚠️ Impossible de mettre en cache');
     }
   }
   
@@ -497,8 +460,5 @@ api.getConfig = () => ({
 // EXPORT
 // =============================================
 
-// Exporter l'URL de l'API pour usage externe
 export { API_URL };
-
-// Exporter par défaut l'instance axios
 export default api;
