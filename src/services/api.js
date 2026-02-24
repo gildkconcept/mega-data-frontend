@@ -12,8 +12,13 @@ const RENDER_BACKEND_URL = 'https://mega-data-pw3w.onrender.com';
 const getApiUrl = () => {
   // 1. Variable d'environnement (Vercel) - PRIORITAIRE
   if (process.env.REACT_APP_API_URL) {
-    console.log('🔧 Using REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
-    return process.env.REACT_APP_API_URL;
+    let url = process.env.REACT_APP_API_URL;
+    // Enlever le slash à la fin si présent
+    if (url.endsWith('/')) {
+      url = url.slice(0, -1);
+    }
+    console.log('🔧 Using REACT_APP_API_URL:', url);
+    return url;
   }
 
   // 2. En production, utiliser la nouvelle URL Render
@@ -42,14 +47,14 @@ console.log('🔧 Configuration API Finale:', {
 // =============================================
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_URL,  // URL de base SANS /api à la fin
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
   timeout: 15000, // 15 secondes timeout
   timeoutErrorMessage: 'La requête a pris trop de temps. Vérifiez votre connexion.',
-  withCredentials: false, // Désactivé car on utilise Bearer token
+  withCredentials: false,
 });
 
 // =============================================
